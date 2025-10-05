@@ -82,6 +82,9 @@ RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
     fi;
 
 COPY --from=planner /usr/src/recipe.json recipe.json
+COPY backends backends
+COPY core core
+COPY router router
 COPY Cargo.toml ./
 COPY Cargo.lock ./
 
@@ -120,9 +123,6 @@ RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
         fi; \
     fi;
 
-COPY backends backends
-COPY core core
-COPY router router
 
 FROM builder AS http-builder
 
