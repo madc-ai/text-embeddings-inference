@@ -79,7 +79,7 @@ vergen = { version = "8.0.0", features = ["build", "git", "gitcl"] }
 tonic-build = { version = "0.11.0", optional = true }
 
 [features]
-default = ["candle", "http", "dynamic-linking"]
+default = ["candle", "http", "dynamic-loading"]
 http = ["dep:axum", "dep:axum-tracing-opentelemetry", "dep:base64", "dep:tower-http", "dep:utoipa", "dep:utoipa-swagger-ui"]
 grpc = ["metrics-exporter-prometheus/http-listener", "dep:prost", "dep:tonic", "dep:tonic-health", "dep:tonic-reflection", "dep:tonic-build", "dep:async-stream", "dep:tokio-stream"]
 metal = ["text-embeddings-backend/metal"]
@@ -92,5 +92,6 @@ candle-cuda = ["candle", "text-embeddings-backend/cuda", "text-embeddings-backen
 candle-cuda-turing = ["candle-cuda"]
 candle-cuda-volta = ["candle", "text-embeddings-backend/cuda", "dep:cudarc"]
 static-linking = ["cudarc?/static-linking", "intel-mkl-src?/mkl-static-lp64-iomp"]
+dynamic-loading = ["cudarc?/dynamic-loading"]
 dynamic-linking = ["cudarc?/dynamic-linking", "intel-mkl-src?/mkl-dynamic-lp64-iomp"]
 google = []

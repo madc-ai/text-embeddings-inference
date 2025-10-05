@@ -52,7 +52,7 @@ cudarc = { version = "0.17.3", features = [
     "f16",
     "f8",
     "cuda-version-from-build-system",
-    "dynamic-linking"
+    "dynamic-loading"
 ], default-features = false }
 intel-mkl-src = { version = "0.8", default-features = false }
 candle = { version = "0.9.1", package = "candle-core" }
