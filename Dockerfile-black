@@ -82,6 +82,8 @@ RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
     fi;
 
 COPY --from=planner /usr/src/recipe.json recipe.json
+COPY Cargo.toml ./
+COPY Cargo.lock ./
 
 # Prefetch dependencies and patch CUTLASS headers to include CUDA driver definitions.
 RUN cargo fetch --locked && \
@@ -121,8 +123,6 @@ RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
 COPY backends backends
 COPY core core
 COPY router router
-COPY Cargo.toml ./
-COPY Cargo.lock ./
 
 FROM builder AS http-builder
 
