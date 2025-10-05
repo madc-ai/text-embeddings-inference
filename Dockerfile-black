@@ -83,6 +83,17 @@ RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
 
 COPY --from=planner /usr/src/recipe.json recipe.json
 
+# Prefetch dependencies and patch CUTLASS headers to include CUDA driver definitions.
+RUN cargo fetch --locked && \
+    python - <<'PY'
+from pathlib import Path
+paths = Path('/root/.cargo/git/checkouts')
+for header in paths.glob('candle-*/**/cutlass/include/cutlass/cuda_host_adapter.hpp'):
+    text = header.read_text()
+    if '#include <cuda.h>' not in text:
+        header.write_text(text.replace('#include <cuda_runtime_api.h>', '#include <cuda.h>\n#include <cuda_runtime_api.h>', 1))
+PY
+
 RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
     --mount=type=secret,id=actions_runtime_token,env=ACTIONS_RUNTIME_TOKEN \
     if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
