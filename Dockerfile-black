@@ -66,21 +66,10 @@ WORKDIR /usr/src
 
 RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
     --mount=type=secret,id=actions_runtime_token,env=ACTIONS_RUNTIME_TOKEN \
-    if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
-    then  \
-        nvprune --generate-code code=sm_${CUDA_COMPUTE_CAP} /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
-    elif [ ${CUDA_COMPUTE_CAP} -ge 80 -a ${CUDA_COMPUTE_CAP} -lt 90 ]; \
-    then  \
-        nvprune --generate-code code=sm_80 --generate-code code=sm_${CUDA_COMPUTE_CAP} /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
-    elif [ ${CUDA_COMPUTE_CAP} -eq 90 ]; \
-    then  \
-        nvprune --generate-code code=sm_90 /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
-    elif [ ${CUDA_COMPUTE_CAP} -eq 120 ]; \
-    then  \
-        nvprune --generate-code code=sm_${CUDA_COMPUTE_CAP} /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \ 
-    else  \
+    if [ "${CUDA_COMPUTE_CAP}" -ne 120 ]; then \
         echo "cuda compute cap ${CUDA_COMPUTE_CAP} is not supported"; exit 1; \
-    fi;
+    fi && \
+    nvprune --generate-code code=sm_120 /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a;
 
 COPY --from=planner /usr/src/recipe.json recipe.json
 COPY backends backends
@@ -111,26 +100,13 @@ PY
 
 RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
     --mount=type=secret,id=actions_runtime_token,env=ACTIONS_RUNTIME_TOKEN \
-    if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
-    then \
-        if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo chef cook --release --features candle-cuda-turing --features dynamic-linking --no-default-features --recipe-path recipe.json; \
-        else \
-            cargo chef cook --release --features candle-cuda-turing --features dynamic-linking --no-default-features --recipe-path recipe.json && sccache -s; \
-        fi; \
-    elif [ ${CUDA_COMPUTE_CAP} -eq 120 ]; \
-    then \
-        if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo chef cook --release --features candle-cuda --features dynamic-linking --no-default-features --recipe-path recipe.json; \
-        else \
-            cargo chef cook --release --features candle-cuda --features dynamic-linking --no-default-features --recipe-path recipe.json && sccache -s; \
-        fi; \
+    if [ "${CUDA_COMPUTE_CAP}" -ne 120 ]; then \
+        echo "cuda compute cap ${CUDA_COMPUTE_CAP} is not supported"; exit 1; \
+    fi && \
+    if [ "${DISABLE_SCCACHE}" = "1" ]; then \
+        RUSTC_WRAPPER= cargo chef cook --release --features candle-cuda --no-default-features --recipe-path recipe.json; \
     else \
-        if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo chef cook --release --features candle-cuda --features dynamic-linking --no-default-features --recipe-path recipe.json; \
-        else \
-            cargo chef cook --release --features candle-cuda --features dynamic-linking --no-default-features --recipe-path recipe.json && sccache -s; \
-        fi; \
+        cargo chef cook --release --features candle-cuda --no-default-features --recipe-path recipe.json && sccache -s; \
     fi;
 
 
@@ -138,26 +114,13 @@ FROM builder AS http-builder
 
 RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
     --mount=type=secret,id=actions_runtime_token,env=ACTIONS_RUNTIME_TOKEN \
-    if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
-    then \
-        if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F dynamic-linking -F http --no-default-features; \
-        else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F dynamic-linking -F http --no-default-features && sccache -s; \
-        fi; \
-    elif [ ${CUDA_COMPUTE_CAP} -eq 120 ]; \
-    then \
-        if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F http --no-default-features; \
-        else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F http --no-default-features && sccache -s; \
-        fi; \
+    if [ "${CUDA_COMPUTE_CAP}" -ne 120 ]; then \
+        echo "cuda compute cap ${CUDA_COMPUTE_CAP} is not supported"; exit 1; \
+    fi && \
+    if [ "${DISABLE_SCCACHE}" = "1" ]; then \
+        RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F http --no-default-features; \
     else \
-        if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F http --no-default-features; \
-        else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F http --no-default-features && sccache -s; \
-        fi; \
+        cargo build --release --bin text-embeddings-router -F candle-cuda -F http --no-default-features && sccache -s; \
     fi;
 
 FROM builder AS grpc-builder
@@ -176,26 +139,13 @@ COPY proto proto
 
 RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
     --mount=type=secret,id=actions_runtime_token,env=ACTIONS_RUNTIME_TOKEN \
-    if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
-    then \
-        if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F dynamic-linking -F grpc --no-default-features; \
-        else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F dynamic-linking -F grpc --no-default-features && sccache -s; \
-        fi; \
-    elif [ ${CUDA_COMPUTE_CAP} -eq 120 ]; \
-    then \
-        if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F grpc --no-default-features; \
-        else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F grpc --no-default-features && sccache -s; \
-        fi; \
+    if [ "${CUDA_COMPUTE_CAP}" -ne 120 ]; then \
+        echo "cuda compute cap ${CUDA_COMPUTE_CAP} is not supported"; exit 1; \
+    fi && \
+    if [ "${DISABLE_SCCACHE}" = "1" ]; then \
+        RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F grpc --no-default-features; \
     else \
-        if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F grpc --no-default-features; \
-        else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F grpc --no-default-features && sccache -s; \
-        fi; \
+        cargo build --release --bin text-embeddings-router -F candle-cuda -F grpc --no-default-features && sccache -s; \
     fi;
 
 FROM nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 AS base
