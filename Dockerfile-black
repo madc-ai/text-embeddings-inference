@@ -91,7 +91,7 @@ COPY Cargo.lock ./
 
 # Prefetch dependencies and patch CUTLASS headers to include CUDA driver definitions.
 RUN cargo fetch --locked && \
-    python - <<'PY'
+    python3 - <<'PY'
 from pathlib import Path
 paths = Path('/root/.cargo/git/checkouts')
 for header in paths.glob('candle-*/**/cutlass/include/cutlass/cuda_host_adapter.hpp'):
