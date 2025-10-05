@@ -109,11 +109,16 @@ if cutlass_patched == 0:
 cudarc_patched = 0
 for cargo_toml in paths.glob('candle-*/**/Cargo.toml'):
     text = cargo_toml.read_text()
-    if '"dynamic-linking"' in text and 'cudarc' in text:
-        new_text = text.replace('"cuda-version-from-build-system",\n    "dynamic-linking",', '"cuda-version-from-build-system",\n    "static-linking",')
-        if new_text != text:
-            cargo_toml.write_text(new_text)
-            cudarc_patched += 1
+    if 'cudarc' not in text:
+        continue
+    original = text
+    # Remove any dynamic-linking entries in cudarc feature lists
+    text = text.replace('    "dynamic-linking",\n', '')
+    if '"static-linking"' not in text:
+        text = text.replace('    "cuda-version-from-build-system",\n', '    "cuda-version-from-build-system",\n    "static-linking",\n')
+    if text != original:
+        cargo_toml.write_text(text)
+        cudarc_patched += 1
 
 print(f"Patched {cudarc_patched} Candle Cargo.toml files for cudarc static linking")
 if cudarc_patched == 0:
