@@ -93,7 +93,13 @@ COPY Cargo.lock ./
 RUN cargo fetch --locked && \
     python3 - <<'PY'
 from pathlib import Path
-paths = Path('/root/.cargo/git/checkouts')
+import os
+
+cargo_home = Path(os.environ.get('CARGO_HOME', Path.home() / '.cargo'))
+git_checkouts = cargo_home / 'git' / 'checkouts'
+registry_src = cargo_home / 'registry' / 'src'
+
+paths = git_checkouts
 
 cutlass_patched = 0
 for header in paths.glob('candle-*/**/cutlass/include/cutlass/cuda_host_adapter.hpp'):
@@ -112,8 +118,8 @@ for cargo_toml in paths.glob('candle-*/**/Cargo.toml'):
     if 'cudarc' not in text:
         continue
     original = text
-    # Remove any dynamic-linking entries in cudarc feature lists
-    text = text.replace('    "dynamic-linking",\n', '')
+    for pattern in ['    "dynamic-linking",\n', '    "dynamic-linking",', '"dynamic-linking",\n', '"dynamic-linking",']:
+        text = text.replace(pattern, '')
     if '"static-linking"' not in text:
         text = text.replace('    "cuda-version-from-build-system",\n', '    "cuda-version-from-build-system",\n    "static-linking",\n')
     if text != original:
@@ -121,8 +127,30 @@ for cargo_toml in paths.glob('candle-*/**/Cargo.toml'):
         cudarc_patched += 1
 
 print(f"Patched {cudarc_patched} Candle Cargo.toml files for cudarc static linking")
-if cudarc_patched == 0:
-    raise SystemExit('No Candle Cargo.toml files patched for cudarc static linking; build would enable dynamic-linking')
+remaining_dynamic = []
+for cargo_toml in paths.glob('candle-*/**/Cargo.toml'):
+    text = cargo_toml.read_text()
+    if 'cudarc' in text and 'dynamic-linking' in text:
+        remaining_dynamic.append(str(cargo_toml))
+if remaining_dynamic:
+    raise SystemExit('dynamic-linking still present in: ' + ', '.join(remaining_dynamic))
+
+cudarc_builds = list(registry_src.glob('*/*/cudarc-0.17.3/build.rs'))
+if not cudarc_builds:
+    raise SystemExit('cudarc build.rs files not found under ' + str(registry_src))
+for build_rs in cudarc_builds:
+    text = build_rs.read_text()
+    text = text.replace(
+        '#[cfg(all(feature = "dynamic-linking", feature = "static-linking"))]\n    panic!("Both `dynamic-linking` and `static-linking` features are active, this is a bug");',
+        '#[cfg(all(feature = "dynamic-linking", feature = "static-linking"))]\n    println!("cargo:warning=Both `dynamic-linking` and `static-linking` enabled; forcing static linking");'
+    )
+    text = text.replace(
+        '#[cfg(feature = "dynamic-linking")]\ndynamic_linking(major, minor);',
+        '#[cfg(all(feature = "dynamic-linking", not(feature = "static-linking")))]\ndynamic_linking(major, minor);'
+    )
+    build_rs.write_text(text)
+
+print(f"Patched {len(cudarc_builds)} cudarc build.rs files to prefer static linking")
 PY
 
 RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
