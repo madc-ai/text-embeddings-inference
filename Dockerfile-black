@@ -78,7 +78,7 @@ COPY router router
 COPY Cargo.toml ./
 COPY Cargo.lock ./
 
-# Prefetch dependencies and adjust Candle for CUDA 13.
+# Prefetch dependencies and adjust Candle for CUDA 13 when needed.
 RUN cargo fetch --locked && \
     python3 - <<'PY'
 from pathlib import Path
@@ -87,30 +87,20 @@ import os
 cargo_home = Path(os.environ.get('CARGO_HOME', Path.home() / '.cargo'))
 git_checkouts = cargo_home / 'git' / 'checkouts'
 
-cutlass_patched = 0
-for header in git_checkouts.glob('candle-*/**/cutlass/include/cutlass/cuda_host_adapter.hpp'):
+headers = list(git_checkouts.glob('candle-*/**/cutlass/include/cutlass/cuda_host_adapter.hpp'))
+patched = 0
+already_ok = 0
+for header in headers:
     text = header.read_text()
-    if '#include <cuda.h>' not in text:
-        header.write_text(text.replace('#include <cuda_runtime_api.h>', '#include <cuda.h>\n#include <cuda_runtime_api.h>', 1))
-        cutlass_patched += 1
-
-print(f"Patched {cutlass_patched} CUTLASS headers")
-if cutlass_patched == 0:
-    raise SystemExit('No cuda_host_adapter.hpp files patched; CUDA 13 build may fail')
-
-candle_cargo = git_checkouts.glob('candle-*/**/Cargo.toml')
-candle_patched = 0
-for cargo_toml in candle_cargo:
-    text = cargo_toml.read_text()
-    if 'cudarc' not in text:
+    if '#include <cuda.h>' in text:
+        already_ok += 1
         continue
-    original = text
-    text = text.replace('    "dynamic-linking",\n', '')
-    if text != original:
-        cargo_toml.write_text(text)
-        candle_patched += 1
+    header.write_text(text.replace('#include <cuda_runtime_api.h>', '#include <cuda.h>\n#include <cuda_runtime_api.h>', 1))
+    patched += 1
 
-print(f"Removed dynamic-linking from {candle_patched} Candle Cargo.toml files")
+print(f"Patched {patched} CUTLASS headers; {already_ok} already had cuda.h include")
+if not headers:
+    print('No CUTLASS headers found in Candle checkout; skipping CUDA 13 patch')
 PY
 
 RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
