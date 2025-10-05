@@ -95,14 +95,10 @@ RUN cargo fetch --locked && \
 from pathlib import Path
 import os
 
-cargo_home = Path(os.environ.get('CARGO_HOME', Path.home() / '.cargo'))
-git_checkouts = cargo_home / 'git' / 'checkouts'
-registry_src = cargo_home / 'registry' / 'src'
-
-paths = git_checkouts
+git_checkouts = Path(os.environ.get('CARGO_HOME', Path.home() / '.cargo')) / 'git' / 'checkouts'
 
 cutlass_patched = 0
-for header in paths.glob('candle-*/**/cutlass/include/cutlass/cuda_host_adapter.hpp'):
+for header in git_checkouts.glob('candle-*/**/cutlass/include/cutlass/cuda_host_adapter.hpp'):
     text = header.read_text()
     if '#include <cuda.h>' not in text:
         header.write_text(text.replace('#include <cuda_runtime_api.h>', '#include <cuda.h>\n#include <cuda_runtime_api.h>', 1))
@@ -111,46 +107,6 @@ for header in paths.glob('candle-*/**/cutlass/include/cutlass/cuda_host_adapter.
 print(f"Patched {cutlass_patched} CUTLASS headers")
 if cutlass_patched == 0:
     raise SystemExit('No cuda_host_adapter.hpp files patched; CUDA 13 build may fail')
-
-cudarc_patched = 0
-for cargo_toml in paths.glob('candle-*/**/Cargo.toml'):
-    text = cargo_toml.read_text()
-    if 'cudarc' not in text:
-        continue
-    original = text
-    for pattern in ['    "dynamic-linking",\n', '    "dynamic-linking",', '"dynamic-linking",\n', '"dynamic-linking",']:
-        text = text.replace(pattern, '')
-    if '"static-linking"' not in text:
-        text = text.replace('    "cuda-version-from-build-system",\n', '    "cuda-version-from-build-system",\n    "static-linking",\n')
-    if text != original:
-        cargo_toml.write_text(text)
-        cudarc_patched += 1
-
-print(f"Patched {cudarc_patched} Candle Cargo.toml files for cudarc static linking")
-remaining_dynamic = []
-for cargo_toml in paths.glob('candle-*/**/Cargo.toml'):
-    text = cargo_toml.read_text()
-    if 'cudarc' in text and 'dynamic-linking' in text:
-        remaining_dynamic.append(str(cargo_toml))
-if remaining_dynamic:
-    raise SystemExit('dynamic-linking still present in: ' + ', '.join(remaining_dynamic))
-
-cudarc_builds = list(registry_src.glob('*/*/cudarc-0.17.3/build.rs'))
-if not cudarc_builds:
-    raise SystemExit('cudarc build.rs files not found under ' + str(registry_src))
-for build_rs in cudarc_builds:
-    text = build_rs.read_text()
-    text = text.replace(
-        '#[cfg(all(feature = "dynamic-linking", feature = "static-linking"))]\n    panic!("Both `dynamic-linking` and `static-linking` features are active, this is a bug");',
-        '#[cfg(all(feature = "dynamic-linking", feature = "static-linking"))]\n    println!("cargo:warning=Both `dynamic-linking` and `static-linking` enabled; forcing static linking");'
-    )
-    text = text.replace(
-        '#[cfg(feature = "dynamic-linking")]\ndynamic_linking(major, minor);',
-        '#[cfg(all(feature = "dynamic-linking", not(feature = "static-linking")))]\ndynamic_linking(major, minor);'
-    )
-    build_rs.write_text(text)
-
-print(f"Patched {len(cudarc_builds)} cudarc build.rs files to prefer static linking")
 PY
 
 RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
@@ -158,22 +114,22 @@ RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
     if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
     then \
         if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo chef cook --release --features candle-cuda-turing --features static-linking --no-default-features --recipe-path recipe.json; \
+            RUSTC_WRAPPER= cargo chef cook --release --features candle-cuda-turing --features dynamic-linking --no-default-features --recipe-path recipe.json; \
         else \
-            cargo chef cook --release --features candle-cuda-turing --features static-linking --no-default-features --recipe-path recipe.json && sccache -s; \
+            cargo chef cook --release --features candle-cuda-turing --features dynamic-linking --no-default-features --recipe-path recipe.json && sccache -s; \
         fi; \
     elif [ ${CUDA_COMPUTE_CAP} -eq 120 ]; \
     then \
         if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo chef cook --release --features candle-cuda --features static-linking --no-default-features --recipe-path recipe.json; \
+            RUSTC_WRAPPER= cargo chef cook --release --features candle-cuda --features dynamic-linking --no-default-features --recipe-path recipe.json; \
         else \
-            cargo chef cook --release --features candle-cuda --features static-linking --no-default-features --recipe-path recipe.json && sccache -s; \
+            cargo chef cook --release --features candle-cuda --features dynamic-linking --no-default-features --recipe-path recipe.json && sccache -s; \
         fi; \
     else \
         if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo chef cook --release --features candle-cuda --features static-linking --no-default-features --recipe-path recipe.json; \
+            RUSTC_WRAPPER= cargo chef cook --release --features candle-cuda --features dynamic-linking --no-default-features --recipe-path recipe.json; \
         else \
-            cargo chef cook --release --features candle-cuda --features static-linking --no-default-features --recipe-path recipe.json && sccache -s; \
+            cargo chef cook --release --features candle-cuda --features dynamic-linking --no-default-features --recipe-path recipe.json && sccache -s; \
         fi; \
     fi;
 
@@ -185,22 +141,22 @@ RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
     if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
     then \
         if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F static-linking -F http --no-default-features; \
+            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F dynamic-linking -F http --no-default-features; \
         else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F static-linking -F http --no-default-features && sccache -s; \
+            cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F dynamic-linking -F http --no-default-features && sccache -s; \
         fi; \
     elif [ ${CUDA_COMPUTE_CAP} -eq 120 ]; \
     then \
         if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F http --no-default-features; \
+            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F http --no-default-features; \
         else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F http --no-default-features && sccache -s; \
+            cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F http --no-default-features && sccache -s; \
         fi; \
     else \
         if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F http --no-default-features; \
+            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F http --no-default-features; \
         else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F http --no-default-features && sccache -s; \
+            cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F http --no-default-features && sccache -s; \
         fi; \
     fi;
 
@@ -223,22 +179,22 @@ RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
     if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
     then \
         if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F static-linking -F grpc --no-default-features; \
+            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F dynamic-linking -F grpc --no-default-features; \
         else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F static-linking -F grpc --no-default-features && sccache -s; \
+            cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F dynamic-linking -F grpc --no-default-features && sccache -s; \
         fi; \
     elif [ ${CUDA_COMPUTE_CAP} -eq 120 ]; \
     then \
         if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F grpc --no-default-features; \
+            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F grpc --no-default-features; \
         else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F grpc --no-default-features && sccache -s; \
+            cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F grpc --no-default-features && sccache -s; \
         fi; \
     else \
         if [ "${DISABLE_SCCACHE}" = "1" ]; then \
-            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F grpc --no-default-features; \
+            RUSTC_WRAPPER= cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F grpc --no-default-features; \
         else \
-            cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F grpc --no-default-features && sccache -s; \
+            cargo build --release --bin text-embeddings-router -F candle-cuda -F dynamic-linking -F grpc --no-default-features && sccache -s; \
         fi; \
     fi;
 
