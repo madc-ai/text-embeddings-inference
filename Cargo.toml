@@ -55,10 +55,10 @@ candle-flash-attn-v1 = { version = "0.0.1" }
 half = { version = "2.3.1", features = ["num-traits"] }
 
 [patch.crates-io]
-candle = { git = "https://github.com/huggingface/candle", rev = "8045af96c7ebe85fd4637e030dba6aee3b176dad", package = "candle-core" }
-candle-nn = { git = "https://github.com/huggingface/candle", rev = "8045af96c7ebe85fd4637e030dba6aee3b176dad", package = "candle-nn" }
-candle-transformers = { git = "https://github.com/huggingface/candle", rev = "8045af96c7ebe85fd4637e030dba6aee3b176dad", package = "candle-transformers" }
-candle-flash-attn = { git = "https://github.com/huggingface/candle", rev = "8045af96c7ebe85fd4637e030dba6aee3b176dad", package = "candle-flash-attn" }
+candle = { git = "https://github.com/huggingface/candle", rev = "dd1246771a23e7cab44cdac07e381b8c1880b289", package = "candle-core" }
+candle-nn = { git = "https://github.com/huggingface/candle", rev = "dd1246771a23e7cab44cdac07e381b8c1880b289", package = "candle-nn" }
+candle-transformers = { git = "https://github.com/huggingface/candle", rev = "dd1246771a23e7cab44cdac07e381b8c1880b289", package = "candle-transformers" }
+candle-flash-attn = { git = "https://github.com/huggingface/candle", rev = "dd1246771a23e7cab44cdac07e381b8c1880b289", package = "candle-flash-attn" }
 
 [profile.release]
 debug = 0
