@@ -94,15 +94,30 @@ RUN cargo fetch --locked && \
     python3 - <<'PY'
 from pathlib import Path
 paths = Path('/root/.cargo/git/checkouts')
-patched = 0
+
+cutlass_patched = 0
 for header in paths.glob('candle-*/**/cutlass/include/cutlass/cuda_host_adapter.hpp'):
     text = header.read_text()
     if '#include <cuda.h>' not in text:
         header.write_text(text.replace('#include <cuda_runtime_api.h>', '#include <cuda.h>\n#include <cuda_runtime_api.h>', 1))
-        patched += 1
-print(f"Patched {patched} CUTLASS headers")
-if patched == 0:
+        cutlass_patched += 1
+
+print(f"Patched {cutlass_patched} CUTLASS headers")
+if cutlass_patched == 0:
     raise SystemExit('No cuda_host_adapter.hpp files patched; CUDA 13 build may fail')
+
+cudarc_patched = 0
+for cargo_toml in paths.glob('candle-*/**/Cargo.toml'):
+    text = cargo_toml.read_text()
+    if '"dynamic-linking"' in text and 'cudarc' in text:
+        new_text = text.replace('"cuda-version-from-build-system",\n    "dynamic-linking",', '"cuda-version-from-build-system",\n    "static-linking",')
+        if new_text != text:
+            cargo_toml.write_text(new_text)
+            cudarc_patched += 1
+
+print(f"Patched {cudarc_patched} Candle Cargo.toml files for cudarc static linking")
+if cudarc_patched == 0:
+    raise SystemExit('No Candle Cargo.toml files patched for cudarc static linking; build would enable dynamic-linking')
 PY
 
 RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
