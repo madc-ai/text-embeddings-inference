@@ -94,10 +94,15 @@ RUN cargo fetch --locked && \
     python3 - <<'PY'
 from pathlib import Path
 paths = Path('/root/.cargo/git/checkouts')
+patched = 0
 for header in paths.glob('candle-*/**/cutlass/include/cutlass/cuda_host_adapter.hpp'):
     text = header.read_text()
     if '#include <cuda.h>' not in text:
         header.write_text(text.replace('#include <cuda_runtime_api.h>', '#include <cuda.h>\n#include <cuda_runtime_api.h>', 1))
+        patched += 1
+print(f"Patched {patched} CUTLASS headers")
+if patched == 0:
+    raise SystemExit('No cuda_host_adapter.hpp files patched; CUDA 13 build may fail')
 PY
 
 RUN --mount=type=secret,id=actions_results_url,env=ACTIONS_RESULTS_URL \
