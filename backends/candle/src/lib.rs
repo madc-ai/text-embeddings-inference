@@ -309,9 +309,6 @@ impl CandleBackend {
             (Config::Bert(config), Device::Cuda(_)) => {
                 if cfg!(any(feature = "flash-attn", feature = "flash-attn-v1"))
                     && dtype == DType::F16
-                    // Allow disabling because of flash attention v1 precision problems
-                    // See: https://github.com/huggingface/text-embeddings-inference/issues/37
-                    && &std::env::var("USE_FLASH_ATTENTION").unwrap_or("True".to_string()).to_lowercase() == "true"
                 {
                     match config {
                         BertConfigWrapper::JinaBert(config) => {
@@ -357,9 +354,6 @@ impl CandleBackend {
             ) => {
                 if cfg!(any(feature = "flash-attn", feature = "flash-attn-v1"))
                     && dtype == DType::F16
-                    // Allow disabling because of flash attention v1 precision problems
-                    // See: https://github.com/huggingface/text-embeddings-inference/issues/37
-                    && &std::env::var("USE_FLASH_ATTENTION").unwrap_or("True".to_string()).to_lowercase() == "true"
                 {
                     tracing::info!("Starting FlashBert model on {:?}", device);
                     Ok(Box::new(
@@ -376,10 +370,6 @@ impl CandleBackend {
             (Config::DistilBert(config), Device::Cuda(_)) => {
                 if cfg!(feature = "flash-attn")
                     && dtype == DType::F16
-                    && &std::env::var("USE_FLASH_ATTENTION")
-                        .unwrap_or("True".to_string())
-                        .to_lowercase()
-                        == "true"
                 {
                     tracing::info!("Starting FlashDistilBert model on {:?}", device);
                     Ok(Box::new(
@@ -440,9 +430,6 @@ impl CandleBackend {
             (Config::ModernBert(config), Device::Cuda(_)) => {
                 if cfg!(feature = "flash-attn")
                     && dtype == DType::F16
-                    // Allow disabling because of flash attention v1 precision problems
-                    // See: https://github.com/huggingface/text-embeddings-inference/issues/37
-                    && &std::env::var("USE_FLASH_ATTENTION").unwrap_or("True".to_string()).to_lowercase() == "true"
                 {
                     tracing::info!("Starting FlashModernBert model on {:?}", device);
                     Ok(Box::new(
@@ -461,10 +448,6 @@ impl CandleBackend {
             (Config::NomicBert(config), Device::Cuda(_)) => {
                 if cfg!(feature = "flash-attn")
                     && dtype == DType::F16
-                    && &std::env::var("USE_FLASH_ATTENTION")
-                        .unwrap_or("True".to_string())
-                        .to_lowercase()
-                        == "true"
                 {
                     tracing::info!("Starting FlashNomicBert model on {:?}", device);
                     Ok(Box::new(
@@ -479,10 +462,6 @@ impl CandleBackend {
             (Config::Qwen2(config), Device::Cuda(_)) => {
                 if dtype != DType::F16
                     || !cfg!(any(feature = "flash-attn", feature = "flash-attn-v1"))
-                    || &std::env::var("USE_FLASH_ATTENTION")
-                        .unwrap_or("True".to_string())
-                        .to_lowercase()
-                        != "true"
                 {
                     return Err(BackendError::Start("Qwen2 is only supported on Cuda devices in fp16 with flash attention v2 enabled".to_string()));
                 }
@@ -495,10 +474,6 @@ impl CandleBackend {
             (Config::Qwen3(config), Device::Cuda(_)) => {
                 if dtype != DType::F16
                     || !cfg!(any(feature = "flash-attn", feature = "flash-attn-v1"))
-                    || &std::env::var("USE_FLASH_ATTENTION")
-                        .unwrap_or("True".to_string())
-                        .to_lowercase()
-                        != "true"
                 {
                     tracing::info!("Starting Qwen3 model on {:?}", device);
                     Ok(Box::new(Qwen3Model::load(vb, &config, model_type).s()?))
